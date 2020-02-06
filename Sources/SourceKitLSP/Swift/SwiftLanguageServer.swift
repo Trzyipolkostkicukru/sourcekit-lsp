@@ -752,11 +752,20 @@ extension SwiftLanguageServer {
     }
     let options = req.params.options
     self.queue.async {
-      var config = SwiftFormatConfiguration.Configuration()
-      config.indentation = options.insertSpaces ? .spaces(options.tabSize) : .tabs(1)
-      config.tabWidth = options.tabSize
+      let configuration: SwiftFormatConfiguration.Configuration
+      // try to load swift-format configuration from a ".swift-format" file
+      // if it fails, use values provided by the lsp
+      if let configUrl = Configuration.url(forConfigurationFileApplyingTo: file),
+        let config = try? Configuration(contentsOf: configUrl) {
+          configuration = config
+      } else {
+        var config = SwiftFormatConfiguration.Configuration()
+        config.indentation = options.insertSpaces ? .spaces(options.tabSize) : .tabs(1)
+        config.tabWidth = options.tabSize
+        configuration = config
+      }
 
-      let formatter = SwiftFormat.SwiftFormatter(configuration: config)
+      let formatter = SwiftFormat.SwiftFormatter(configuration: configuration)
       do {
         let lines = try LineTable(String(contentsOf: file))
         guard let lastLine = lines.last else {
