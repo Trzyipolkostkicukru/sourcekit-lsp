@@ -85,6 +85,9 @@ extension FormattingTests {
     //   `swift test --generate-linuxmain`
     // to regenerate.
     static let __allTests__FormattingTests = [
+        ("testConfigFile", testConfigFile),
+        ("testConfigFileInNestedDirectory", testConfigFileInNestedDirectory),
+        ("testConfigFileInParentDirectory", testConfigFileInParentDirectory),
         ("testSpaces", testSpaces),
         ("testTabs", testTabs),
     ]
