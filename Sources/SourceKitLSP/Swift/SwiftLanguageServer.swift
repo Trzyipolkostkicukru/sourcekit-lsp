@@ -750,6 +750,11 @@ extension SwiftLanguageServer {
       req.reply(nil)
       return
     }
+    guard let snapshot = self.documentManager.latestSnapshot(req.params.textDocument.uri) else {
+        log("failed to find snapshot for url \(req.params.textDocument.uri)")
+        req.reply(nil)
+        return
+    }
     let options = req.params.options
     self.queue.async {
       let configuration: SwiftFormatConfiguration.Configuration
@@ -767,14 +772,13 @@ extension SwiftLanguageServer {
 
       let formatter = SwiftFormat.SwiftFormatter(configuration: configuration)
       do {
-        let lines = try LineTable(String(contentsOf: file))
-        guard let lastLine = lines.last else {
+        guard let lastLine = snapshot.lineTable.last else {
           req.reply(nil)
           return
         }
-        let lastPosition = Position(line: lines.count-1, utf16index: lastLine.utf16.count)
+        let lastPosition = Position(line: snapshot.lineTable.count-1, utf16index: lastLine.utf16.count)
         var edit = TextEdit(range: Position(line: 0, utf16index: 0)..<lastPosition, newText: "")
-        try formatter.format(contentsOf: file, to: &edit.newText)
+        try formatter.format(source: snapshot.text, assumingFileURL: file, to: &edit.newText)
         req.reply([edit])
       } catch {
         log("failed to format document: \(error)", level: .error)
