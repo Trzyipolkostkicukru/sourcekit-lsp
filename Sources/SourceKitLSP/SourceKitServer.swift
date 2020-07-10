@@ -721,6 +721,7 @@ extension SourceKitServer {
 
   func documentFormatting(
     _ req: Request<DocumentFormattingRequest>,
+    workspace: Workspace,
     languageService: ToolchainLanguageServer
   ) {
     languageService.documentFormatting(req)
