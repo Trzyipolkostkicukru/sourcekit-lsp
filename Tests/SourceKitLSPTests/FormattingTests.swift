@@ -23,12 +23,13 @@ final class FormattingTests: XCTestCase {
 
   func initialize() throws {
     workspace = try XCTUnwrap(staticSourceKitTibsWorkspace(name: "Formatting"))
-    print("ws: \(workspace!)")
     try workspace.buildAndIndex()
     try workspace.openDocument(workspace.testLoc("Root").url, language: .swift)
     try workspace.openDocument(workspace.testLoc("Directory").url, language: .swift)
     try workspace.openDocument(workspace.testLoc("NestedWithConfig").url, language: .swift)
     try workspace.openDocument(workspace.testLoc("NestedWithoutConfig").url, language: .swift)
+  
+    sleep(1) // FIXME: openDocument is asynchronous, wait for it to finish
   }
   override func tearDown() {
     workspace = nil
@@ -39,7 +40,6 @@ final class FormattingTests: XCTestCase {
       textDocument: TextDocumentIdentifier(url), 
       options: options
     )
-    print(">>> req: \(request)")
     return try workspace.sk.sendSync(request)
   }
 
@@ -54,93 +54,112 @@ final class FormattingTests: XCTestCase {
     XCTAssertEqual(firstEdit.range.upperBound, Position(line: 3, utf16index: 1))
     // var bar needs to be indented with three spaces
     // which is the value from lsp
-    XCTAssertEqual(firstEdit.newText, #"""
+    XCTAssertEqual(firstEdit.newText, """
     /*Root*/
     struct Root {
        var bar = 123
     }
 
-    """#)
+    """)
   }
 
-  // func testTabs() throws {
-  //   try initialize()
-  //   let url = workspace.testLoc("Root").url
-  //   let options = FormattingOptions(tabSize: 3, insertSpaces: false)
-  //   let edits = try XCTUnwrap(performFormattingRequest(file: url, options: options))
-  //   XCTAssertEqual(edits.count, 1)
-  //   let firstEdit = try XCTUnwrap(edits.first)
-  //   XCTAssertEqual(firstEdit.range.lowerBound, Position(line: 0, utf16index: 0))
-  //   XCTAssertEqual(firstEdit.range.upperBound, Position(line: 3, utf16index: 1))
-  //   // var bar needs to be indented with a tab
-  //   // which is the value from lsp
-  //   XCTAssertEqual(firstEdit.newText, #"""
-  //   /*Root*/
-  //   struct Root {
-  //   \#tvar bar = 123
-  //   }
+  func testSpaces2() throws {
+    XCTAssertNoThrow(try initialize())
+    let url = workspace.testLoc("Root").url
+    let options = FormattingOptions(tabSize: 3, insertSpaces: true)
+    let edits = try XCTUnwrap(performFormattingRequest(file: url, options: options))
+    XCTAssertEqual(edits.count, 1)
+    let firstEdit = try XCTUnwrap(edits.first)
+    XCTAssertEqual(firstEdit.range.lowerBound, Position(line: 0, utf16index: 0))
+    XCTAssertEqual(firstEdit.range.upperBound, Position(line: 3, utf16index: 1))
+    // var bar needs to be indented with three spaces
+    // which is the value from lsp
+    XCTAssertEqual(firstEdit.newText, """
+    /*Root*/
+    struct Root {
+       var bar = 123
+    }
 
-  //   """#)
-  // }
+    """)
+  }
 
-  // func testConfigFile() throws {
-  //   XCTAssertNoThrow(try initialize())
-  //   let url = workspace.testLoc("Directory").url
-  //   let options = FormattingOptions(tabSize: 3, insertSpaces: true)
-  //   print(">>> URL: \(url)")
-  //   let edits = try XCTUnwrap(performFormattingRequest(file: url, options: options))
-  //   XCTAssertEqual(edits.count, 1)
-  //   let firstEdit = try XCTUnwrap(edits.first)
-  //   XCTAssertEqual(firstEdit.range.lowerBound, Position(line: 0, utf16index: 0))
-  //   XCTAssertEqual(firstEdit.range.upperBound, Position(line: 3, utf16index: 1))
-  //   // var bar needs to be indented with one space
-  //   // which is the value from ".swift-format" in "Directory"
-  //   XCTAssertEqual(firstEdit.newText, #"""
-  //   /*Directory*/
-  //   struct Directory {
-  //    var bar = 123
-  //   }
+  func testTabs() throws {
+    try initialize()
+    let url = workspace.testLoc("Root").url
+    let options = FormattingOptions(tabSize: 3, insertSpaces: false)
+    let edits = try XCTUnwrap(performFormattingRequest(file: url, options: options))
+    XCTAssertEqual(edits.count, 1)
+    let firstEdit = try XCTUnwrap(edits.first)
+    XCTAssertEqual(firstEdit.range.lowerBound, Position(line: 0, utf16index: 0))
+    XCTAssertEqual(firstEdit.range.upperBound, Position(line: 3, utf16index: 1))
+    // var bar needs to be indented with a tab
+    // which is the value from lsp
+    XCTAssertEqual(firstEdit.newText, """
+    /*Root*/
+    struct Root {
+    \tvar bar = 123
+    }
 
-  //   """#)
-  // }
+    """)
+  }
+
+  func testConfigFile() throws {
+    XCTAssertNoThrow(try initialize())
+    let url = workspace.testLoc("Directory").url
+    let options = FormattingOptions(tabSize: 3, insertSpaces: true)
+    let edits = try XCTUnwrap(performFormattingRequest(file: url, options: options))
+    XCTAssertEqual(edits.count, 1)
+    let firstEdit = try XCTUnwrap(edits.first)
+    XCTAssertEqual(firstEdit.range.lowerBound, Position(line: 0, utf16index: 0))
+    XCTAssertEqual(firstEdit.range.upperBound, Position(line: 3, utf16index: 1))
+    // var bar needs to be indented with one space
+    // which is the value from ".swift-format" in "Directory"
+    XCTAssertEqual(firstEdit.newText, """
+    /*Directory*/
+    struct Directory {
+     var bar = 123
+    }
+
+    """)
+  }
   
-  // func testConfigFileInParentDirectory() throws {
-  //   XCTAssertNoThrow(try initialize())
-  //   let url = workspace.testLoc("NestedWithoutConfig").url
-  //   let options = FormattingOptions(tabSize: 3, insertSpaces: true)
-  //   let edits = try XCTUnwrap(performFormattingRequest(file: url, options: options))
-  //   XCTAssertEqual(edits.count, 1)
-  //   let firstEdit = try XCTUnwrap(edits.first)
-  //   XCTAssertEqual(firstEdit.range.lowerBound, Position(line: 0, utf16index: 0))
-  //   XCTAssertEqual(firstEdit.range.upperBound, Position(line: 3, utf16index: 1))
-  //   // var bar needs to be indented with one space
-  //   // which is the value from ".swift-format" in "Directory"
-  //   XCTAssertEqual(firstEdit.newText, #"""
-  //   /*NestedWithoutConfig*/
-  //   struct NestedWithoutConfig {
-  //    var bar = 123
-  //   }
+  func testConfigFileInParentDirectory() throws {
+    XCTAssertNoThrow(try initialize())
+    let url = workspace.testLoc("NestedWithoutConfig").url
+    let options = FormattingOptions(tabSize: 3, insertSpaces: true)
+    let edits = try XCTUnwrap(performFormattingRequest(file: url, options: options))
+    XCTAssertEqual(edits.count, 1)
+    let firstEdit = try XCTUnwrap(edits.first)
+    XCTAssertEqual(firstEdit.range.lowerBound, Position(line: 0, utf16index: 0))
+    XCTAssertEqual(firstEdit.range.upperBound, Position(line: 3, utf16index: 1))
+    // var bar needs to be indented with one space
+    // which is the value from ".swift-format" in "Directory"
+    XCTAssertEqual(firstEdit.newText, """
+    /*NestedWithoutConfig*/
+    struct NestedWithoutConfig {
+     var bar = 123
+    }
 
-  //   """#)
-  // }
+    """)
+  }
 
-  // func testConfigFileInNestedDirectory() throws {
-  //   XCTAssertNoThrow(try initialize())
-  //   let url = workspace.testLoc("NestedWithConfig").url
-  //   let options = FormattingOptions(tabSize: 3, insertSpaces: true)
-  //   let edits = try XCTUnwrap(performFormattingRequest(file: url, options: options))
-  //   XCTAssertEqual(edits.count, 1)
-  //   let firstEdit = try XCTUnwrap(edits.first)
-  //   XCTAssertEqual(firstEdit.range.lowerBound, Position(line: 0, utf16index: 0))
-  //   XCTAssertEqual(firstEdit.range.upperBound, Position(line: 3, utf16index: 1))
-  //   // var bar needs to be indented with four spaces
-  //   // which is the value from ".swift-format" in "NestedWithConfig"
-  //   XCTAssertEqual(firstEdit.newText, #"""
-  //   /*NestedWithConfig*/
-  //   struct NestedWithConfig {
-  //       var bar = 123
-  //   }
+  func testConfigFileInNestedDirectory() throws {
+    XCTAssertNoThrow(try initialize())
+    let url = workspace.testLoc("NestedWithConfig").url
+    let options = FormattingOptions(tabSize: 3, insertSpaces: true)
+    let edits = try XCTUnwrap(performFormattingRequest(file: url, options: options))
+    XCTAssertEqual(edits.count, 1)
+    let firstEdit = try XCTUnwrap(edits.first)
+    XCTAssertEqual(firstEdit.range.lowerBound, Position(line: 0, utf16index: 0))
+    XCTAssertEqual(firstEdit.range.upperBound, Position(line: 3, utf16index: 1))
+    // var bar needs to be indented with four spaces
+    // which is the value from ".swift-format" in "NestedWithConfig"
+    XCTAssertEqual(firstEdit.newText, """
+    /*NestedWithConfig*/
+    struct NestedWithConfig {
+        var bar = 123
+    }
 
-  //   """#)
-  // }
+    """)
+  }
 }
